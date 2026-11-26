@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>2D Polygon & Trajectory Math Simulator</title>
+  <style>
+    * { box-sizing: border-box; user-select: none; -webkit-user-select: none; font-family: system-ui, -apple-system, sans-serif; }
+    body { margin: 0; background: #0f172a; color: #f8fafc; display: flex; flex-direction: column; align-items: center; min-height: 100vh; overflow-x: hidden; }
+    header { width: 100%; background: #1e293b; padding: 10px 16px; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; }
+    header h1 { font-size: 16px; margin: 0; color: #38bdf8; }
+    header span { font-size: 12px; color: #94a3b8; }
+
+    /* MAIN MENU */
+    #main-menu {
+      width: 95%; max-width: 720px; margin: 36px auto; background: #1e293b;
+      border: 2px solid #334155; border-radius: 16px; padding: 32px 24px;
+      text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.45);
+    }
+    .menu-badge {
+      display: inline-block; background: #0f172a; color: #38bdf8;
+      border: 1px solid #0284c7; padding: 4px 12px; border-radius: 999px;
+      font-size: 12px; font-weight: 700; margin-bottom: 12px;
+    }
+    #main-menu h2 { font-size: 28px; margin: 6px 0 8px; color: #f8fafc; }
+    #main-menu p { color: #94a3b8; font-size: 14px; max-width: 480px; margin: 0 auto 28px; }
+    .menu-buttons { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+    .btn-big-play {
+      background: linear-gradient(135deg, #22c55e, #16a34a); color: #fff;
+      border: 2px solid #4ade80; padding: 16px 42px; border-radius: 12px;
+      font-size: 20px; font-weight: 800; cursor: pointer;
+      box-shadow: 0 8px 20px rgba(34, 197, 94, 0.35);
+    }
+    .btn-big-play:active { transform: scale(0.97); }
+    .btn-big-edit {
+      background: #334155; color: #f8fafc; border: 2px solid #475569;
+      padding: 16px 28px; border-radius: 12px; font-size: 18px; font-weight: 700; cursor: pointer;
+    }
+    .stats-row { display: flex; justify-content: center; gap: 24px; margin-top: 28px; padding-top: 18px; border-top: 1px solid #334155; font-size: 13px; color: #94a3b8; }
+
+    /* GAME & EDITOR VIEW */
+    #game-screen { width: 100%; display: none; flex-direction: column; align-items: center; }
+    .toolbar { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px; justify-content: center; background: #1e293b; width: 100%; border-bottom: 1px solid #334155; }
+    button { background: #334155; color: #fff; border: 1px solid #475569; padding: 8px 12px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; }
+    button.active { background: #0284c7; border-color: #38bdf8; }
+    button.play-btn { background: #16a34a; border-color: #22c55e; }
+    button.edit-btn { background: #d97706; border-color: #f59e0b; }
+    button.menu-btn { background: #475569; border-color: #64748b; }
+    #canvas-wrap { position: relative; width: 100%; max-width: 960px; margin-top: 10px; padding: 0 8px; }
+    canvas { width: 100%; height: 420px; background: #020617; border: 2px solid #334155; border-radius: 8px; display: block; touch-action: none; }
+    .editor-controls { display: flex; gap: 10px; align-items: center; margin-top: 8px; flex-wrap: wrap; justify-content: center; width: 95%; max-width: 960px; }
+    input[type="range"] { width: 220px; }
+    .share-box { display: flex; gap: 6px; margin: 10px; width: 95%; max-width: 960px; }
+    input[type="text"] { flex: 1; padding: 8px; border-radius: 6px; border: 1px solid #475569; background: #1e293b; color: #fff; font-size: 12px; }
+    .hint { font-size: 12px; color: #94a3b8; margin: 4px 0 12px; text-align: center; }
+
+    /* WIN OVERLAY */
+    #win-banner {
+      display: none; position: absolute; inset: 0; margin: 0 8px;
+      background: rgba(2, 6, 23, 0.86); border-radius: 8px;
+      flex-direction: column; align-items: center; justify-content: center; text-align: center;
+    }
+    #win-banner h3 { font-size: 28px; color: #4ade80; margin: 0 0 8px; }
+    #win-banner p { color: #cbd5e1; margin: 0 0 18px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>📐 2D Polygon & Trajectory Math Simulator</h1>
+    <span>Unit 4: Parabolic Vectors & Rigid-Body Collisions</span>
+  </div>
+  <span id="status-text">Main Menu</span>
+</header>
+
+<!-- MAIN MENU -->
+<div id="main-menu">
+  <div class="menu-badge">MODULE 4.1 • VECTOR KINEMATICS</div>
+  <h2>Abyssar Dash: 10s Sprint</h2>
+  <p>Calculate jump trajectories across a 10.0-second polygon obstacle course, or open the grid sandbox to design custom levels.</p>
+  <div class="menu-buttons">
+    <button class="btn-big-play" onclick="startFromMenu('play')">▶️ PLAY (10s Level)</button>
+    <button class="btn-big-edit" onclick="startFromMenu('edit')">🛠 Level Editor</button>
+  </div>
+  <div class="stats-row">
+    <span>⏱ Duration: <strong>10.0 Seconds</strong></span>
+    <span>🏆 Best Progress: <strong id="best-pct">0%</strong></span>
+    <span>✅ Clears: <strong id="clear-count">0</strong></span>
+  </div>
+</div>
+
+<!-- GAME & EDITOR SCREEN -->
+<div id="game-screen">
+  <div class="toolbar">
+    <button class="menu-btn" onclick="goToMenu()">🏠 Menu</button>
+    <button id="btn-mode" class="play-btn" onclick="toggleMode()">🛠 Editor</button>
+    <button id="tool-block" class="active" onclick="setTool(1)">🟦 Block</button>
+    <button id="tool-spike" onclick="setTool(2)">🔺 Spike</button>
+    <button id="tool-pad" onclick="setTool(3)">🟡 Pad</button>
+    <button id="tool-erase" onclick="setTool(0)">🧹 Erase</button>
+    <button onclick="loadTenSecondLevel()">🔄 Reset 10s Level</button>
+    <button onclick="clearLevel()">🗑 Clear</button>
+  </div>
+
+  <div class="editor-controls" id="editor-bar" style="display:none;">
+    <label style="font-size:13px;">Scroll X: <input type="range" id="scroll-slider" min="0" max="80" value="0" oninput="cameraX = this.value * 40" /></label>
+    <span style="font-size:12px; color:#38bdf8;">Tap grid to place/remove tiles</span>
+  </div>
+
+  <div id="canvas-wrap">
+    <canvas id="game" width="900" height="420"></canvas>
+    <div id="win-banner">
+      <h3>🎉 10s Course Complete!</h3>
+      <p id="win-stats">Completed in 1 attempt!</p>
+      <div class="menu-buttons">
+        <button class="play-btn" onclick="playAgain()">🔁 Play Again</button>
+        <button class="menu-btn" onclick="goToMenu()">🏠 Main Menu</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="hint" id="hint-text">Tap screen or press Space / Up Arrow to jump!</div>
+
+  <div class="share-box">
+    <input type="text" id="level-code" placeholder="Level code appears here to copy or paste..." />
+    <button onclick="exportLevel()">📤 Export</button>
+    <button onclick="importLevel()">📥 Load</button>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+
+const TILE = 40;
+const ROWS = 9;
+const FLOOR_Y = ROWS * TILE; // 360px
+
+// At 60 FPS and speed 6.0 px/frame = 360 px/sec -> 10 seconds = 3600 px (90 tiles)
+const START_X = 120;
+const SPEED = 6.0;
+const LEVEL_DURATION = 10.0; // seconds
+const GOAL_X = START_X + SPEED * 60 * LEVEL_DURATION; // 3720px (~93 cols)
+const COLS = 100;
+
+let screen = 'menu'; // 'menu' or 'game'
+let mode = 'play';   // 'play' or 'edit'
+let currentTool = 1;
+let cameraX = 0;
+let attempts = 1;
+let bestPercent = 0;
+let totalClears = 0;
+let levelWon = false;
+let jumpHeld = false;
+
+let grid = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+
+const player = {
+  x: START_X, y: FLOOR_Y - 34, w: 34, h: 34,
+  vy: 0, speed: SPEED, gravity: 0.78, jumpForce: -12.6,
+  grounded: true, angle: 0
+};
+
+function loadTenSecondLevel() {
+  grid = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+  // 10-second paced obstacle layout (Cols 12 to 88)
+  grid[8][14] = 2; // Single spike (~1.2s)
+  grid[8][22] = 1; grid[8][23] = 1; grid[8][24] = 2; // Block jump + spike (~2.3s)
+  grid[8][31] = 3; // Yellow jump pad (~3.1s)
+  grid[6][35] = 1; grid[6][36] = 1; grid[6][37] = 1; // High platform (~3.6s)
+  grid[8][44] = 2; grid[8][45] = 2; // Double spike (~4.6s)
+  grid[8][53] = 1; grid[7][56] = 1; grid[6][59] = 1; // Staircase (~5.8s)
+  grid[8][67] = 2; // Ground spike drop (~6.9s)
+  grid[8][74] = 3; // Jump pad boost (~7.7s)
+  grid[6][79] = 1; grid[6][80] = 1; grid[5][80] = 2; // Final platform dodge (~8.4s)
+  grid[8][87] = 2; // Last spike before 10s finish line (~9.3s)
+  resetPlayer();
+}
+
+function clearLevel() {
+  grid = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+  cameraX = 0;
+  document.getElementById('scroll-slider').value = 0;
+  resetPlayer();
+}
+
+function resetPlayer() {
+  player.x = START_X;
+  player.y = FLOOR_Y - player.h;
+  player.vy = 0;
+  player.grounded = true;
+  player.angle = 0;
+  cameraX = 0;
+  levelWon = false;
+  document.getElementById('win-banner').style.display = 'none';
+}
+
+function startFromMenu(targetMode) {
+  screen = 'game';
+  document.getElementById('main-menu').style.display = 'none';
+  document.getElementById('game-screen').style.display = 'flex';
+  attempts = 1;
+  loadTenSecondLevel();
+  if (targetMode === 'edit' && mode !== 'edit') toggleMode();
+  if (targetMode === 'play' && mode !== 'play') toggleMode();
+  document.getElementById('status-text').textContent = mode === 'play' ? '10s Level' : 'Grid Editor';
+}
+
+function goToMenu() {
+  screen = 'menu';
+  jumpHeld = false;
+  document.getElementById('game-screen').style.display = 'none';
+  document.getElementById('main-menu').style.display = 'block';
+  document.getElementById('status-text').textContent = 'Main Menu';
+  document.getElementById('best-pct').textContent = bestPercent + '%';
+  document.getElementById('clear-count').textContent = totalClears;
+}
+
+function playAgain() {
+  attempts = 1;
+  resetPlayer();
+}
+
+function toggleMode() {
+  mode = mode === 'play' ? 'edit' : 'play';
+  const btn = document.getElementById('btn-mode'); const edBar = document.getElementById('editor-bar');
+const status = document.getElementById('status-text');
+const hint = document.getElementById('hint-text');
+if (mode === 'edit') {
+btn.textContent = '▶️ Play';
+btn.className = 'edit-btn';
+edBar.style.display = 'flex';
+status.textContent = 'Grid Editor';
+hint.textContent = 'Select a tool above and tap anywhere on the grid!';
+document.getElementById('win-banner').style.display = 'none';
+document.getElementById('scroll-slider').value = Math.floor(cameraX / TILE);
+} else {
+btn.textContent = '🛠 Editor';
+btn.className = 'play-btn';
+edBar.style.display = 'none';
+status.textContent = '10s Level';
+hint.textContent = 'Tap screen or press Space / Up Arrow to jump!';
+resetPlayer();
+}
+}
+function setTool(t) {
+currentTool = t;
+[1, 2, 3, 0].forEach(id => {
+const map = { 1: 'tool-block', 2: 'tool-spike', 3: 'tool-pad', 0: 'tool-erase' };
+document.getElementById(map[id]).classList.toggle('active', id === t);
+});
+}
+window.addEventListener('keydown', e => {
+if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') {
+if (screen === 'game') e.preventDefault();
+jumpHeld = true;
+}
+});
+window.addEventListener('keyup', e => {
+if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') jumpHeld = false;
+});
+canvas.addEventListener('pointerdown', e => {
+if (screen !== 'game') return;
+if (mode === 'play') {
+jumpHeld = true;
+} else {
+placeTile(e);
+}
+});
+canvas.addEventListener('pointermove', e => {
+if (screen === 'game' && mode === 'edit' && e.buttons > 0) placeTile(e);
+});
+window.addEventListener('pointerup', () => { jumpHeld = false; });
+function placeTile(e) {
+const rect = canvas.getBoundingClientRect();
+const scaleX = canvas.width / rect.width;
+const scaleY = canvas.height / rect.height;
+const x = (e.clientX - rect.left) * scaleX + cameraX;
+const y = (e.clientY - rect.top) * scaleY;
+const col = Math.floor(x / TILE);
+const row = Math.floor(y / TILE);
+if (row >= 0 && row < ROWS && col >= 0 && col < COLS) {
+grid[row][col] = currentTool;
+}
+}
+function exportLevel() {
+const packed = [];
+for (let r = 0; r < ROWS; r++) {
+for (let c = 0; c < COLS; c++) {
+if (grid[r][c] !== 0) packed.push(${r},${c},${grid[r][c]});
+}
+}
+const code = btoa(packed.join(';'));
+const box = document.getElementById('level-code');
+box.value = code;
+box.select();
+navigator.clipboard?.writeText(code);
+alert('Level code copied!');
+}
+function importLevel() {
+try {
+const raw = atob(document.getElementById('level-code').value.trim());
+grid = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+if (raw) {
+raw.split(';').forEach(item => {
+const [r, c, t] = item.split(',').map(Number);
+if (grid[r] && grid[r][c] !== undefined) grid[r][c] = t;
+});
+}
+resetPlayer();
+alert('Custom level loaded!');
+} catch {
+alert('Invalid level code!');
+}
+}
+function rectOverlap(ax, ay, aw, ah, bx, by, bw, bh) {
+return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
+}
+function update() {
+if (screen !== 'game' || mode !== 'play' || levelWon) return;
+if (jumpHeld && player.grounded) {
+player.vy = player.jumpForce;
+player.grounded = false;
+}
+player.x += player.speed;
+player.vy += player.gravity;
+player.y += player.vy;
+player.grounded = false;
+if (player.y + player.h >= FLOOR_Y) {
+player.y = FLOOR_Y - player.h;
+player.vy = 0;
+player.grounded = true;
+}
+const startCol = Math.max(0, Math.floor(player.x / TILE) - 1);
+const endCol = Math.min(COLS - 1, Math.floor((player.x + player.w) / TILE) + 1);
+for (let r = 0; r < ROWS; r++) {
+for (let c = startCol; c <= endCol; c++) {
+const t = grid[r][c];
+if (!t) continue;
+const tx = c * TILE, ty = r * TILE;
+if (t === 1) {
+if (rectOverlap(player.x, player.y, player.w, player.h, tx, ty, TILE, TILE)) {
+if (player.vy >= 0 && player.y + player.h - player.vy <= ty + 10) {
+player.y = ty - player.h;
+player.vy = 0;
+player.grounded = true;
+} else {
+attempts++;
+resetPlayer();
+return;
+}
+}
+} else if (t === 2) {
+if (rectOverlap(player.x + 6, player.y + 6, player.w - 12, player.h - 10, tx + 10, ty + 12, TILE - 20, TILE - 12)) {
+attempts++;
+resetPlayer();
+return;
+}
+} else if (t === 3) {
+if (rectOverlap(player.x, player.y, player.w, player.h, tx, ty + 24, TILE, 16)) {
+player.vy = -17.5;
+player.grounded = false;
+}
+}
+}
+}
+if (!player.grounded) {
+player.angle += 0.14;
+} else {
+player.angle = Math.round(player.angle / (Math.PI / 2)) * (Math.PI / 2);
+}
+cameraX = Math.max(0, player.x - 160);
+const pct = Math.min(100, Math.floor(((player.x - START_X) / (GOAL_X - START_X)) * 100));
+if (pct > bestPercent) bestPercent = pct;
+// Reach 10.0s finish line
+if (player.x >= GOAL_X) {
+levelWon = true;
+bestPercent = 100;
+totalClears++;
+document.getElementById('win-stats').textContent = Cleared in ${attempts} attempt${attempts === 1 ? '' : 's'}!;
+document.getElementById('win-banner').style.display = 'flex';
+}
+}
+function draw() {
+if (screen !== 'game') return;
+ctx.clearRect(0, 0, canvas.width, canvas.height);
+// Math grid
+ctx.strokeStyle = '#0f172a';
+ctx.lineWidth = 1;
+const offset = -(cameraX % TILE);
+for (let x = offset; x < canvas.width; x += TILE) {
+ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, FLOOR_Y); ctx.stroke();
+}
+for (let y = 0; y <= FLOOR_Y; y += TILE) {
+ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+}
+// 10s Finish Gate Line
+const finishScreenX = GOAL_X - cameraX;
+if (finishScreenX >= -20 && finishScreenX <= canvas.width + 20) {
+ctx.fillStyle = 'rgba(74, 222, 128, 0.18)';
+ctx.fillRect(finishScreenX, 0, 24, FLOOR_Y);
+ctx.strokeStyle = '#4ade80';
+ctx.lineWidth = 3;
+ctx.beginPath(); ctx.moveTo(finishScreenX, 0); ctx.lineTo(finishScreenX, FLOOR_Y); ctx.stroke();
+}
+// Ground
+ctx.fillStyle = '#1e293b';
+ctx.fillRect(0, FLOOR_Y, canvas.width, canvas.height - FLOOR_Y);
+ctx.strokeStyle = '#38bdf8';
+ctx.lineWidth = 2;
+ctx.beginPath(); ctx.moveTo(0, FLOOR_Y); ctx.lineTo(canvas.width, FLOOR_Y); ctx.stroke();
+// Tiles
+const startCol = Math.max(0, Math.floor(cameraX / TILE));
+const endCol = Math.min(COLS - 1, Math.ceil((cameraX + canvas.width) / TILE));
+for (let r = 0; r < ROWS; r++) {
+for (let c = startCol; c <= endCol; c++) {
+const t = grid[r][c];
+if (!t) continue;
+const sx = c * TILE - cameraX;
+const sy = r * TILE;
+if (t === 1) {
+ctx.fillStyle = '#0284c7';
+ctx.fillRect(sx + 1, sy + 1, TILE - 2, TILE - 2);
+ctx.strokeStyle = '#7dd3fc';
+ctx.strokeRect(sx + 4, sy + 4, TILE - 8, TILE - 8);
+} else if (t === 2) {
+ctx.fillStyle = '#ef4444';
+ctx.beginPath();
+ctx.moveTo(sx + TILE / 2, sy + 4);
+ctx.lineTo(sx + TILE - 3, sy + TILE - 1);
+ctx.lineTo(sx + 3, sy + TILE - 1);
+ctx.closePath();
+ctx.fill();
+ctx.strokeStyle = '#fca5a5';
+ctx.stroke();
+} else if (t === 3) {
+ctx.fillStyle = '#facc15';
+ctx.fillRect(sx + 4, sy + TILE - 10, TILE - 8, 10);
+}
+}
+}
+// Player Cube
+ctx.save();
+ctx.translate(player.x - cameraX + player.w / 2, player.y + player.h / 2);
+ctx.rotate(player.angle);
+ctx.fillStyle = '#22d3ee';
+ctx.fillRect(-player.w / 2, -player.h / 2, player.w, player.h);
+ctx.strokeStyle = '#ffffff';
+ctx.lineWidth = 2;
+ctx.strokeRect(-player.w / 2 + 3, -player.h / 2 + 3, player.w - 6, player.h - 6);
+ctx.fillStyle = '#0f172a';
+ctx.fillRect(-8, -7, 5, 5);
+ctx.fillRect(3, -7, 5, 5);
+ctx.fillRect(-7, 3, 14, 4);
+ctx.restore();
+// HUD + Timer + Progress Bar
+const elapsed = Math.min(LEVEL_DURATION, Math.max(0, (player.x - START_X) / (SPEED * 60)));
+const remaining = Math.max(0, LEVEL_DURATION - elapsed).toFixed(1);
+const pct = Math.min(100, Math.floor((elapsed / LEVEL_DURATION) * 100));
+ctx.fillStyle = '#1e293b';
+ctx.fillRect(260, 12, 380, 12);
+ctx.fillStyle = '#22c55e';
+ctx.fillRect(260, 12, 380 * (pct / 100), 12);
+ctx.strokeStyle = '#475569';
+ctx.strokeRect(260, 12, 380, 12);
+ctx.fillStyle = '#f8fafc';
+ctx.font = 'bold 14px system-ui';
+ctx.fillText(Attempt ${attempts}, 16, 23);
+ctx.fillText(${pct}%  |  ${remaining}s left, 660, 23);
+}
+function loop() {
+update();
+draw();
+requestAnimationFrame(loop);
+}
+loadTenSecondLevel();
+loop();
